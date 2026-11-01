@@ -36,3 +36,9 @@ test('adds meditation and reading today without altering past days or repeating 
  const measured=setDay(next,'2026-11-02',{values:{meditation:0.25,reading:0.5},completed:['reading']});
  assert.equal(weekSummary(measured,'2026-11-02').averages.reading,0.5);validate(measured);
 });
+test('meditation becomes a simple checkbox while preserving old marks and recorded values',()=>{
+ let s=blank();s.habits=s.habits.map(h=>h.id==='meditation'?{...h,unit:'часов',target:0.25}:h);
+ s=setDay(s,'2026-11-02',{completed:['meditation'],values:{meditation:0.5}});
+ const next=validate(s),habit=next.habits.find(h=>h.id==='meditation');
+ assert.equal(habit.unit,'');assert.equal(habit.target,1);assert.deepEqual(next.days['2026-11-02'].completed,['meditation']);assert.equal(next.days['2026-11-02'].values.meditation,0.5);assert.equal(weekSummary(next,'2026-11-02').averages.meditation,undefined);assert.deepEqual(validate(next),next);
+});

@@ -6,7 +6,7 @@ export const defaults = [
  {id:'activity',title:'Активность',icon:'👟',unit:'часов',target:1,color:'lime'},
  {id:'skincare',title:'Skincare',icon:'🧴',unit:'',target:1,color:'pink'},
  {id:'learning',title:'Обучение',icon:'📚',unit:'часов',target:1,color:'peach'},
- {id:'meditation',title:'Медитация',icon:'🧘‍♀️',unit:'часов',target:0.25,color:'lavender'},
+ {id:'meditation',title:'Медитация',icon:'🧘‍♀️',unit:'',target:1,color:'lavender'},
  {id:'reading',title:'Чтение книг',icon:'📖',unit:'часов',target:0.5,color:'pink'},
 ];
 export const blank = () => ({version:2,profile:{firstName:'',lastName:'',goal:''},habits:defaults.map(h=>({...h})),days:{}});
@@ -43,6 +43,7 @@ export function validate(s) {
   for(const field of ['activities','dailyGoals','dayWins','dayMisses','dayExtra']) if(d[field]!==undefined&&(typeof d[field]!=='string'||d[field].length>5000)) throw Error('Неверный дневник');
   if(d.skincare!==undefined&&(!d.skincare||typeof d.skincare.morning!=='boolean'||typeof d.skincare.evening!=='boolean'))throw Error('Неверная рутина');
  }
+ s={...s,habits:s.habits.map(h=>h.id==='meditation'?{...h,unit:'',target:1}:h)};
  const glass=s.habits.some(h=>h.id==='water'&&h.unit==='стаканов');
  if(glass) s={...s,waterConverted:true,habits:s.habits.map(h=>h.id==='water'?{...h,unit:'л',target:h.target*0.25}:h),days:Object.fromEntries(Object.entries(s.days).map(([date,d])=>[date,{...d,values:{...d.values,...(Number.isFinite(d.values.water)?{water:d.values.water*0.25}:{})}}]))};
  // Unit metadata makes this conversion safe to repeat, including older backups.
