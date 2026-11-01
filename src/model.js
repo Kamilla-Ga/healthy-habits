@@ -11,7 +11,7 @@ export const defaults = [
 ];
 export const catalog = [...defaults,
  ...[['walking','Прогулка','🌿'],['yoga','Йога','🪷'],['pilates','Пилатес','🤸‍♀️'],['swimming','Плавание','🏊‍♀️'],['running','Бег','👟'],['stretching','Растяжка','🦋'],['breathing','Дыхательная практика','🌬️'],['journaling','Ведение дневника','📓'],['gratitude','Благодарность','🤍'],['nutrition','Сбалансированное питание','🥑'],['vegetables','Овощи и фрукты','🥗'],['outdoors','Время на свежем воздухе','🌸'],['digital-break','Отдых от экрана','📵'],['early-bed','Лечь спать вовремя','🛌'],['creativity','Творчество','🎨'],['language','Иностранный язык','🌍']].map(([id,title,icon])=>({id,title,icon,unit:'',target:1,color:'pink'}))];
-export const blank = () => ({version:2,profile:{firstName:'',lastName:'',birthYear:'',goal:''},personalized:true,selectedIds:defaults.map(h=>h.id),habits:defaults.map(h=>({...h})),days:{}});
+export const blank = () => ({version:2,profile:{firstName:'',lastName:'',birthYear:'',birthDate:'',avatar:'',goal:''},personalized:true,selectedIds:defaults.map(h=>h.id),habits:defaults.map(h=>({...h})),days:{}});
 export function load(storage) {
  const raw=storage.getItem(KEY);
  if(raw) {let parsed=validate(JSON.parse(raw));if(!parsed.selectedIds) {parsed=addWellnessHabits(parsed);parsed={...parsed,personalized:true,selectedIds:parsed.habits.map(h=>h.id)};}return parsed;}
@@ -36,6 +36,11 @@ export function addWellnessHabits(state,today=dayKey()) {
 export function validate(s) {
  if(!s||s.version!==2||!s.profile||!Array.isArray(s.habits)||!s.habits.length||s.habits.length>60||!s.days||typeof s.days!=='object'||Array.isArray(s.days)) throw Error('Неверный формат копии');
  for(const f of ['firstName','lastName','goal']) if(typeof s.profile[f]!=='string'||s.profile[f].length>1000) throw Error('Неверный профиль');
+ if(s.profile.birthDate!==undefined&&s.profile.birthDate!=='') {
+  const date=s.profile.birthDate;
+  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<'1900-01-01'||date>dayKey()||dayKey(new Date(`${date}T12:00:00`))!==date)throw Error('Неверная дата рождения');
+ }
+ if(s.profile.avatar!==undefined&&s.profile.avatar!==''&&(typeof s.profile.avatar!=='string'||s.profile.avatar.length>300000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(s.profile.avatar)))throw Error('Неверная аватарка');
  if(s.personalized!==undefined&&typeof s.personalized!=='boolean')throw Error('Неверная настройка');
  if(s.profile.birthYear!==undefined&&s.profile.birthYear!==''&&(!/^\d{4}$/.test(s.profile.birthYear)||Number(s.profile.birthYear)<1900||Number(s.profile.birthYear)>new Date().getFullYear()))throw Error('Неверный год рождения');
  const ids=new Set();

@@ -54,3 +54,10 @@ test('changing selection preserves past days and restores today checkmarks when 
  const next=personalize(s,s.profile,['skincare','meditation'],'2026-11-02');assert.deepEqual(next.days['2026-11-01'],s.days['2026-11-01']);assert.deepEqual(next.days['2026-11-02'].completed,['meditation']);assert.equal(next.days['2026-11-02'].dailyGoals,'Моя цель');
  const restored=personalize(next,next.profile,['water','meditation'],'2026-11-02');assert.ok(restored.days['2026-11-02'].completed.includes('water'));assert.equal(load(store([[KEY,JSON.stringify(next)]])).selectedIds.includes('reading'),false);
 });
+test('full birthday and avatar survive reload and invalid dates/remote avatars are rejected',()=>{
+ const s=blank();s.profile={...s.profile,birthDate:'2000-02-29',birthYear:'2000',avatar:'data:image/jpeg;base64,YQ=='};
+ assert.deepEqual(load(store([[KEY,JSON.stringify(s)]])),s);
+ for(const birthDate of ['2001-02-29','1995-13-01','2099-01-01','1899-12-31'])assert.throws(()=>validate({...s,profile:{...s.profile,birthDate}}));
+ assert.throws(()=>validate({...s,profile:{...s.profile,avatar:'https://example.com/photo.jpg'}}));
+ const legacy=blank();delete legacy.profile.birthDate;delete legacy.profile.avatar;legacy.profile.birthYear='1995';assert.equal(validate(legacy).profile.birthDate,undefined);
+});
