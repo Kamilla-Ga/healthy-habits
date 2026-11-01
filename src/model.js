@@ -3,9 +3,9 @@ export const KEY = 'healthy-habits:v2';
 export const defaults = [
  {id:'water',title:'Вода',icon:'💧',unit:'стаканов',target:8,color:'blue'},
  {id:'sleep',title:'Сон',icon:'🌙',unit:'часов',target:8,color:'lavender'},
- {id:'activity',title:'Активность',icon:'👟',unit:'минут',target:30,color:'lime'},
+ {id:'activity',title:'Активность',icon:'👟',unit:'часов',target:1,color:'lime'},
  {id:'skincare',title:'Skincare',icon:'🧴',unit:'',target:1,color:'pink'},
- {id:'learning',title:'Обучение',icon:'📚',unit:'минут',target:20,color:'peach'},
+ {id:'learning',title:'Обучение',icon:'📚',unit:'часов',target:1,color:'peach'},
 ];
 export const blank = () => ({version:2,profile:{firstName:'',lastName:'',goal:''},habits:defaults.map(h=>({...h})),days:{}});
 export function load(storage) {
@@ -30,7 +30,10 @@ export function validate(s) {
  for(const [date,d] of Object.entries(s.days)) {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!d||!Array.isArray(d.completed)||!Array.isArray(d.habitIds)||d.habitIds.some(id=>!ids.has(id))||new Set(d.habitIds).size!==d.habitIds.length||d.completed.some(id=>!d.habitIds.includes(id))||new Set(d.completed).size!==d.completed.length||typeof d.values!=='object'||d.values===null||Array.isArray(d.values)||Object.values(d.values).some(v=>!Number.isFinite(v)||v<0||v>10000)||typeof d.note!=='string'||d.note.length>5000||!['','great','good','okay','low','tired'].includes(d.mood)) throw Error('Неверные записи дней');
  }
- return s;
+ // Unit metadata makes this conversion safe to repeat, including older backups.
+ const minuteIds=s.habits.filter(h=>['activity','learning'].includes(h.id)&&h.unit==='минут').map(h=>h.id);
+ if(!minuteIds.length)return s;
+ return {...s,habits:s.habits.map(h=>minuteIds.includes(h.id)?{...h,unit:'часов',target:h.target/60}:h),days:Object.fromEntries(Object.entries(s.days).map(([date,d])=>[date,{...d,values:Object.fromEntries(Object.entries(d.values).map(([id,v])=>[id,minuteIds.includes(id)?v/60:v]))}]))};
 }
 export function getDay(state,date) { return state.days[date] || {completed:[],values:{},mood:'',note:'',habitIds:state.habits.map(h=>h.id)}; }
 export function setDay(state,date,patch) {return {...state,days:{...state.days,[date]:{...getDay(state,date),...patch}}};}
