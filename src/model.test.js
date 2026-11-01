@@ -20,3 +20,9 @@ test('converts minute-based goals and history to hours exactly once, including b
  assert.deepEqual(load(store([[KEY,JSON.stringify(migrated)]])),migrated);
  assert.deepEqual(validate(JSON.parse(JSON.stringify(old))),migrated);
 });
+test('converts glasses to litres once, preserves daily fields and routine checks',()=>{
+ const s=blank();const water=s.habits.find(h=>h.id==='water');water.unit='стаканов';water.target=8;
+ const old=setDay(s,'2026-11-01',{completed:['water','skincare'],values:{water:6},dailyGoals:'Пилатес',dayWins:'Получилось',dayMisses:'Не успела',dayExtra:'Прогулка',activities:'Пилатес, Йога',skincare:{morning:true,evening:false}});
+ const next=validate(old);assert.equal(next.habits.find(h=>h.id==='water').target,2);assert.equal(next.days['2026-11-01'].values.water,1.5);assert.equal(old.days['2026-11-01'].values.water,6);assert.deepEqual(validate(next),next);assert.equal(next.days['2026-11-01'].dayExtra,'Прогулка');assert.equal(next.days['2026-11-01'].skincare.evening,false);assert.equal(next.waterConverted,true);
+ const bad=structuredClone(next);bad.days['2026-11-01'].dailyGoals=42;assert.throws(()=>validate(bad));
+});

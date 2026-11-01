@@ -1,7 +1,7 @@
 import { dayKey } from './storage.js';
 export const KEY = 'healthy-habits:v2';
 export const defaults = [
- {id:'water',title:'Вода',icon:'💧',unit:'стаканов',target:8,color:'blue'},
+ {id:'water',title:'Вода',icon:'💧',unit:'л',target:2,color:'blue'},
  {id:'sleep',title:'Сон',icon:'🌙',unit:'часов',target:8,color:'lavender'},
  {id:'activity',title:'Активность',icon:'👟',unit:'часов',target:1,color:'lime'},
  {id:'skincare',title:'Skincare',icon:'🧴',unit:'',target:1,color:'pink'},
@@ -30,6 +30,12 @@ export function validate(s) {
  for(const [date,d] of Object.entries(s.days)) {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!d||!Array.isArray(d.completed)||!Array.isArray(d.habitIds)||d.habitIds.some(id=>!ids.has(id))||new Set(d.habitIds).size!==d.habitIds.length||d.completed.some(id=>!d.habitIds.includes(id))||new Set(d.completed).size!==d.completed.length||typeof d.values!=='object'||d.values===null||Array.isArray(d.values)||Object.values(d.values).some(v=>!Number.isFinite(v)||v<0||v>10000)||typeof d.note!=='string'||d.note.length>5000||!['','great','good','okay','low','tired'].includes(d.mood)) throw Error('Неверные записи дней');
  }
+ for(const d of Object.values(s.days)) {
+  for(const field of ['activities','dailyGoals','dayWins','dayMisses','dayExtra']) if(d[field]!==undefined&&(typeof d[field]!=='string'||d[field].length>5000)) throw Error('Неверный дневник');
+  if(d.skincare!==undefined&&(!d.skincare||typeof d.skincare.morning!=='boolean'||typeof d.skincare.evening!=='boolean'))throw Error('Неверная рутина');
+ }
+ const glass=s.habits.some(h=>h.id==='water'&&h.unit==='стаканов');
+ if(glass) s={...s,waterConverted:true,habits:s.habits.map(h=>h.id==='water'?{...h,unit:'л',target:h.target*0.25}:h),days:Object.fromEntries(Object.entries(s.days).map(([date,d])=>[date,{...d,values:{...d.values,...(Number.isFinite(d.values.water)?{water:d.values.water*0.25}:{})}}]))};
  // Unit metadata makes this conversion safe to repeat, including older backups.
  const minuteIds=s.habits.filter(h=>['activity','learning'].includes(h.id)&&h.unit==='минут').map(h=>h.id);
  if(!minuteIds.length)return s;
