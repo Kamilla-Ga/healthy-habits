@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {blank,load,getDay,setDay,validate,weekSummary,KEY,addWellnessHabits} from './model.js';
+import {blank,load,getDay,setDay,validate,weekSummary,KEY,addWellnessHabits,personalize} from './model.js';
 function store(entries){const m=new Map(entries);return {getItem:k=>m.get(k)??null,key:i=>[...m.keys()][i],get length(){return m.size;}};}
 test('migrates original checkmarks without deleting history',()=>{const s=load(store([['healthy-habits:2026-10-31','["water","sleep"]']]));assert.deepEqual(s.days['2026-10-31'].completed,['water','sleep']);assert.equal(s.days['2026-10-31'].habitIds.length,5);validate(s);});
-test('separates missing days from recorded days and preserves past habits',()=>{let s=blank();s=setDay(s,'2026-11-01',{completed:['water'],values:{water:8,sleep:7}});s.habits.push({id:'custom-one',title:'Йога',icon:'✨',unit:'',target:1});assert.equal(getDay(s,'2026-11-01').habitIds.length,7);assert.equal(getDay(s,'2026-11-02').habitIds.length,8);assert.equal(s.days['2026-10-31'],undefined);const w=weekSummary(s,'2026-11-01');assert.equal(w.recorded,1);assert.equal(w.percent,14);assert.equal(w.averages.sleep,7);assert.equal(w.averages.activity,null);});
+test('separates missing days from recorded days and preserves past habits',()=>{let s=blank();s=setDay(s,'2026-11-01',{completed:['water'],values:{water:8,sleep:7}});s.habits.push({id:'custom-one',title:'Йога',icon:'✨',unit:'',target:1});s.selectedIds.push('custom-one');assert.equal(getDay(s,'2026-11-01').habitIds.length,7);assert.equal(getDay(s,'2026-11-02').habitIds.length,8);assert.equal(s.days['2026-10-31'],undefined);const w=weekSummary(s,'2026-11-01');assert.equal(w.recorded,1);assert.equal(w.percent,14);assert.equal(w.averages.sleep,7);assert.equal(w.averages.activity,null);});
 test('backup round trip and malformed backup rejection',()=>{const s=blank();s.profile.firstName='Камилла';assert.deepEqual(load(store([[KEY,JSON.stringify(s)]])),s);assert.throws(()=>validate({version:2}));const bad=blank();bad.days['2026-11-01']={completed:['bad'],habitIds:['water'],values:{},note:'',mood:''};assert.throws(()=>validate(bad));});
 test('converts minute-based goals and history to hours exactly once, including backups',()=>{
  const s=blank();
@@ -27,7 +27,7 @@ test('converts glasses to litres once, preserves daily fields and routine checks
  const bad=structuredClone(next);bad.days['2026-11-01'].dailyGoals=42;assert.throws(()=>validate(bad));
 });
 test('adds meditation and reading today without altering past days or repeating additions',()=>{
- let s=blank();s.habits=s.habits.filter(h=>!['meditation','reading'].includes(h.id));
+ let s=blank();s.habits=s.habits.filter(h=>!['meditation','reading'].includes(h.id));delete s.selectedIds;
  s=setDay(s,'2026-11-01',{completed:['water'],values:{water:2}});s=setDay(s,'2026-11-02',{note:'Сегодня'});
  const next=addWellnessHabits(s,'2026-11-02');
  assert.equal(next.days['2026-11-01'].habitIds.length,5);assert.deepEqual(next.days['2026-11-01'].completed,['water']);
@@ -41,4 +41,16 @@ test('meditation becomes a simple checkbox while preserving old marks and record
  s=setDay(s,'2026-11-02',{completed:['meditation'],values:{meditation:0.5}});
  const next=validate(s),habit=next.habits.find(h=>h.id==='meditation');
  assert.equal(habit.unit,'');assert.equal(habit.target,1);assert.deepEqual(next.days['2026-11-02'].completed,['meditation']);assert.equal(next.days['2026-11-02'].values.meditation,0.5);assert.equal(weekSummary(next,'2026-11-02').averages.meditation,undefined);assert.deepEqual(validate(next),next);
+});
+test('new visitors choose their own habits and selection survives reload',()=>{
+ const s=load(store([]));assert.equal(s.personalized,false);assert.deepEqual(s.selectedIds,[]);
+ const next=personalize(s,{firstName:'Анна',lastName:'Иванова',birthYear:'1995',goal:'Баланс'},['skincare','meditation','yoga'],'2026-11-02');
+ assert.equal(next.personalized,true);assert.deepEqual(getDay(next,'2026-11-03').habitIds,['skincare','meditation','yoga']);
+ const reloaded=load(store([[KEY,JSON.stringify(next)]]));assert.deepEqual(reloaded.selectedIds,next.selectedIds);assert.equal(reloaded.profile.birthYear,'1995');
+ assert.throws(()=>personalize(next,next.profile,[]));assert.throws(()=>personalize(next,{...next.profile,birthYear:'1800'},['yoga']));
+});
+test('changing selection preserves past days and restores today checkmarks when reenabled',()=>{
+ let s=blank();s=setDay(s,'2026-11-01',{completed:['water']});s=setDay(s,'2026-11-02',{completed:['water','meditation'],dailyGoals:'Моя цель'});
+ const next=personalize(s,s.profile,['skincare','meditation'],'2026-11-02');assert.deepEqual(next.days['2026-11-01'],s.days['2026-11-01']);assert.deepEqual(next.days['2026-11-02'].completed,['meditation']);assert.equal(next.days['2026-11-02'].dailyGoals,'Моя цель');
+ const restored=personalize(next,next.profile,['water','meditation'],'2026-11-02');assert.ok(restored.days['2026-11-02'].completed.includes('water'));assert.equal(load(store([[KEY,JSON.stringify(next)]])).selectedIds.includes('reading'),false);
 });
