@@ -6,11 +6,13 @@ export const defaults = [
  {id:'activity',title:'Активность',icon:'👟',unit:'часов',target:1,color:'lime'},
  {id:'skincare',title:'Skincare',icon:'🧴',unit:'',target:1,color:'pink'},
  {id:'learning',title:'Обучение',icon:'📚',unit:'часов',target:1,color:'peach'},
+ {id:'meditation',title:'Медитация',icon:'🧘‍♀️',unit:'часов',target:0.25,color:'lavender'},
+ {id:'reading',title:'Чтение книг',icon:'📖',unit:'часов',target:0.5,color:'pink'},
 ];
 export const blank = () => ({version:2,profile:{firstName:'',lastName:'',goal:''},habits:defaults.map(h=>({...h})),days:{}});
 export function load(storage) {
  const raw=storage.getItem(KEY);
- if(raw) return validate(JSON.parse(raw));
+ if(raw) return addWellnessHabits(validate(JSON.parse(raw)));
  const state=blank();
  for(let i=0;i<storage.length;i++) {
   const key=storage.key(i);
@@ -18,12 +20,19 @@ export function load(storage) {
   let ids; try { ids=JSON.parse(storage.getItem(key)); } catch { continue; }
   if(!Array.isArray(ids)) continue;
   const completed=ids.filter(id=>defaults.some(h=>h.id===id));
-  state.days[key.slice(15)]={completed,values:{},mood:'',note:'',habitIds:defaults.map(h=>h.id)};
+  state.days[key.slice(15)]={completed,values:{},mood:'',note:'',habitIds:defaults.slice(0,5).map(h=>h.id)};
  }
- return state;
+ return addWellnessHabits(state);
+}
+export function addWellnessHabits(state,today=dayKey()) {
+ const additions=defaults.filter(h=>['meditation','reading'].includes(h.id)&&!state.habits.some(x=>x.id===h.id));
+ if(!additions.length)return state;
+ const days={...state.days};
+ for(const [date,d] of Object.entries(days))if(date>=today)days[date]={...d,habitIds:[...d.habitIds,...additions.map(h=>h.id)]};
+ return {...state,habits:[...state.habits,...additions.map(h=>({...h}))],days};
 }
 export function validate(s) {
- if(!s||s.version!==2||!s.profile||!Array.isArray(s.habits)||!s.habits.length||s.habits.length>30||!s.days||typeof s.days!=='object'||Array.isArray(s.days)) throw Error('Неверный формат копии');
+ if(!s||s.version!==2||!s.profile||!Array.isArray(s.habits)||!s.habits.length||s.habits.length>32||!s.days||typeof s.days!=='object'||Array.isArray(s.days)) throw Error('Неверный формат копии');
  for(const f of ['firstName','lastName','goal']) if(typeof s.profile[f]!=='string'||s.profile[f].length>1000) throw Error('Неверный профиль');
  const ids=new Set();
  for(const h of s.habits) { if(!h||typeof h.id!=='string'||!/^[-\w]+$/.test(h.id)||ids.has(h.id)||typeof h.title!=='string'||!h.title.trim()||h.title.length>80||typeof h.icon!=='string'||h.icon.length>16||typeof h.unit!=='string'||h.unit.length>30||!Number.isFinite(h.target)||h.target<=0||h.target>10000) throw Error('Неверные привычки'); ids.add(h.id); }
@@ -50,6 +59,6 @@ export function weekSummary(state,today) {
  const completed=recorded.reduce((sum,date)=>sum+state.days[date].completed.length,0);
  const possible=recorded.reduce((sum,date)=>sum+state.days[date].habitIds.length,0);
  const averages={};
- for(const id of ['water','sleep','activity','learning']) { const values=recorded.map(date=>state.days[date].values[id]).filter(Number.isFinite); averages[id]=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:null; }
+ for(const id of state.habits.filter(h=>h.unit).map(h=>h.id)) { const values=recorded.map(date=>state.days[date].values[id]).filter(Number.isFinite); averages[id]=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:null; }
  return {days,recorded:recorded.length,completed,percent:possible?Math.round(completed/possible*100):0,averages};
 }
