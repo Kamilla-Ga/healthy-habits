@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {blank,load,getDay,setDay,validate,weekSummary,KEY} from './model.js';
+function store(entries){const m=new Map(entries);return {getItem:k=>m.get(k)??null,key:i=>[...m.keys()][i],get length(){return m.size;}};}
+test('migrates original checkmarks without deleting history',()=>{const s=load(store([['healthy-habits:2026-10-31','["water","sleep"]']]));assert.deepEqual(s.days['2026-10-31'].completed,['water','sleep']);assert.equal(s.days['2026-10-31'].habitIds.length,5);validate(s);});
+test('separates missing days from recorded days and preserves past habits',()=>{let s=blank();s=setDay(s,'2026-11-01',{completed:['water'],values:{water:8,sleep:7}});s.habits.push({id:'custom-one',title:'Йога',icon:'✨',unit:'',target:1});assert.equal(getDay(s,'2026-11-01').habitIds.length,5);assert.equal(getDay(s,'2026-11-02').habitIds.length,6);assert.equal(s.days['2026-10-31'],undefined);const w=weekSummary(s,'2026-11-01');assert.equal(w.recorded,1);assert.equal(w.percent,20);assert.equal(w.averages.sleep,7);assert.equal(w.averages.activity,null);});
+test('backup round trip and malformed backup rejection',()=>{const s=blank();s.profile.firstName='Камилла';assert.deepEqual(load(store([[KEY,JSON.stringify(s)]])),s);assert.throws(()=>validate({version:2}));const bad=blank();bad.days['2026-11-01']={completed:['bad'],habitIds:['water'],values:{},note:'',mood:''};assert.throws(()=>validate(bad));});
